@@ -1,7 +1,3 @@
-/// Andrue Peters
-/// 4/10/2021
-///
-/// Relevant algorithms to use since there's no std::algorithms
 #ifndef ALGORITHMS_H
 #define ALGORITHMS_H
 
