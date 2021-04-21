@@ -1,5 +1,7 @@
 #include <Adafruit_MAX31865.h>
+#include <ESP8266WiFi.h>
 #include <ModbusRTU.h>
+#include <ModbusIP_ESP8266.h>
 #include <PID_v2.h>
 #include <RotaryEncoder.h>
 #include <Ticker.h>
@@ -9,14 +11,15 @@
 
 // Use software SPI: CS, DI, DO, CLK
 Adafruit_MAX31865 thermo = Adafruit_MAX31865(9, 10, 12, 13);
-ModbusRTU mb;
+ModbusIP mb;
+IPAddress remote (192, 168, 1, 200);
 
 constexpr int SLAVE_ID = 1; // slave id for modbus protocol for Artisan
 constexpr int TEMPERATRE_REGISTER = 2;
 constexpr int SETPOINT_REGISTER = 4;
 constexpr int FAN_PWM_REGISTER = 3;
 
-double kp = 25, ki = 1, kd = 0;
+double kp = 35, ki = 1, kd = 0;
 PID_v2 pid(kp, ki, kd, PID::Direct);
 RotaryEncoder encoder(rotaryAPin, rotaryBPin, RotaryEncoder::LatchMode::FOUR3);
 Ticker dumpData;
@@ -41,6 +44,20 @@ ICACHE_RAM_ATTR void checkPosition() {
 // the setup routine runs once when you press reset:
 void setup() {
   Serial.begin(115200, SERIAL_8N1);
+
+  WiFi.begin("YourNeighbors", "jkQ2pNTMeP63SMH");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");  
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+
   thermo.begin(MAX31865_3WIRE); // set to 2WIRE or 4WIRE as necessary
 
   // declare pin 9 to be an output:
@@ -62,8 +79,9 @@ void setup() {
   sampleTemperature.attach(0.1, setSampleTemperature);
   dumpData.attach(1, setDumpData);
 
-  mb.begin(&Serial);
-  mb.slave(SLAVE_ID);
+  mb.server();
+  //mb.connect(remote);
+  //mb.slave(SLAVE_ID);
   mb.addHreg(TEMPERATRE_REGISTER);
   mb.addHreg(SETPOINT_REGISTER);
   mb.addHreg(FAN_PWM_REGISTER);
@@ -74,6 +92,12 @@ void setup() {
 }
 
 void loop() {
+
+  /*if (mb.isConnected(remote)) {
+    Serial.println("Connected to host.");
+  } else {
+    mb.connect(remote);
+  }*/
   mb.task();
 
   /// keep track of interrupts
@@ -106,17 +130,10 @@ void loop() {
   }
 
   if (shouldDumpData) {
-    /*Serial.print("Temperature");
-    Serial.print("\t");
-    Serial.print(temperature);
-    Serial.print("\t");
-    Serial.print("Setpoint");
-    Serial.print("\t");
-    Serial.println(setPoint);*/
     shouldDumpData = false;
   }
   yield();
-  delay(10); // delay needed to avoid WDT
+  delay(10);
 }
 
 float getTemperature() {
